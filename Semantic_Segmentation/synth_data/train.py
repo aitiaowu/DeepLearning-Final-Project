@@ -111,8 +111,8 @@ if __name__ == '__main__':
 
         print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
 
-        # # Validation losses
-        # model.eval()
-        # model.validate(val_dataset)
-        # model.train_state()
+        # Validation losses
+        model.eval()
+        model.validate(val_dataset)
+        model.train_state()
 

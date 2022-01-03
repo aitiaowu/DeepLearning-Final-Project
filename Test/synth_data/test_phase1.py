@@ -62,9 +62,7 @@ if __name__ == '__main__':
     IoU_background = 0
     IoU_1 = 0
     IoU_2 = 0
-    IoU_3 = 0
-    IoU_4 = 0
-    IoU_5 = 0
+    
     IoU_mean = 0
     counter = 0
     style_correct_num = 0
@@ -85,32 +83,15 @@ if __name__ == '__main__':
             print('processing (%04d)-th image... %s' % (i, img_path))
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
         IoU_background += losses['IoU_background']
-        IoU_1 += losses['IoU_1']
-        IoU_2 += losses['IoU_2']
-        IoU_3 += losses['IoU_3']
-        IoU_4 += losses['IoU_4']
-        IoU_5 += losses['IoU_5']
-        IoU_mean += losses['IoU_mean']
-        style_correct_num += losses['style_correct_num']
-        gp_distance += losses['gp_distance']
-        mean_body_distance += losses['mean_body_distance']
+        IoU_1 += losses['IoU_1'] # edge
+        IoU_2 += losses['IoU_2'] # body
+        
         counter += 1
 
-        if not (losses['gp_distance_median']==10086):
-            all_gp_dist.append(losses['gp_distance_median'])
-            
         
-        if not (losses['mean_body_distance_median']==10086):
-            all_mean_dist.append(losses['mean_body_distance_median'])
 
-        style_acc = style_correct_num/counter  
-    import statistics
-    print("IoU background: {}, body: {}, top: {}, middle: {}, bottom: {}, grasping point: {} mean: {}, style_acc: {}, gp distance: {}, mean_body distance: {}, median gp: {}, median mean: {}".format(IoU_background/counter, IoU_1/counter, IoU_2/counter, IoU_3/counter, IoU_4/counter, IoU_5/counter, IoU_mean/counter, style_acc, statistics.mean(all_gp_dist), statistics.mean(all_mean_dist), statistics.median(all_gp_dist), statistics.median(all_mean_dist)))
+    print("IoU background: {}, body: {}, edge: {}".format(IoU_background/counter, IoU_2/counter, IoU_1/counter))
     with open("/content/result.txt", "a") as file_object:
-        file_object.write("IoU background: {}, body: {}, top: {}, middle: {}, bottom: {}, grasping point: {} mean: {}, style_acc: {}, gp distance: {}, mean_body distance: {}, median gp: {}, median mean: {}\n".format(IoU_background/counter, IoU_1/counter, IoU_2/counter, IoU_3/counter, IoU_4/counter, IoU_5/counter, IoU_mean/counter, style_acc, statistics.mean(all_gp_dist), statistics.mean(all_mean_dist), statistics.median(all_gp_dist), statistics.median(all_mean_dist)))
-    print("gp", all_gp_dist)
-    print("mean body", all_mean_dist)
-    print(len(all_mean_dist))
-    # print("gp", all_gp_dist)
-    # print("body", all_mean_dist)
+        file_object.write("IoU background: {}, body: {}, edge: {}\n".format(IoU_background/counter, IoU_2/counter, IoU_1/counter))
+ 
     webpage.save()  # save the HTML

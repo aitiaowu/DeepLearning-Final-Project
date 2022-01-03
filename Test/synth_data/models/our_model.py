@@ -53,7 +53,7 @@ class ourmodel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['G_GAN', 'G_Entropy', 'D']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        self.visual_names = ['real_A', 'fake_B_visual', 'real_B_visual', 'graping_point_gt_and_pred_visual']
+        self.visual_names = ['real_A', 'fake_B_visual', 'real_B_visual']
         #self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         if self.isTrain:
@@ -199,35 +199,29 @@ class ourmodel(BaseModel):
 
     def visualize(self):
         # background: 0
-        # cuffs: 1
-        # right cuff: 2
-        # body: 3
+        # body: 2
+        # edge: 1
 
-        # labels = ['background',	'left cuff',	'right cuff',	'body']
-        # cloth_map = np.array([[0,0,0],[0,200,0],[0,0,200],[200,0,0]])
 
-        labels = ['background',	'body', 'top edge', 'middle edge', 'bottom edge', 'grasping point']
-        cloth_map = np.array([[0,0,0],[0,200,0],[200,0,0],[0,0,200],[255,192,203],[255,255,0]])
+
+        labels = ['background',	'body', 'edge']
+        cloth_map = np.array([[0,0,0],[0,0,200],[0,200,0]])
 
 
         self.fake_B_lable = torch.argmax(self.fake_B, dim=1)
         
 
-        #self.fake_B_visual = [cloth_map[p] for p in self.fake_B_lable.cpu()]
-        #self.fake_B_visual = self.fake_B_visual[0]
         img = self.fake_B_lable.cpu()
         img = img[0]
         self.fake_B_visual = cloth_map[img]
 
         self.real_B_lable = torch.argmax(self.real_B, dim=1)
 
-        #self.real_B_visual = [cloth_map[p] for p in self.real_B_lable.cpu()]
-        #self.real_B_visual = self.real_B_visual[0]
         img = self.real_B_lable.cpu()
         img = img[0]
         self.real_B_visual = cloth_map[img]
 
-        self.real_A = self.real_A #* torch.tensor(100)
+        self.real_A = self.real_A 
 
     def test(self):
         """Forward function used in test time.
@@ -263,7 +257,7 @@ class ourmodel(BaseModel):
             self.compute_visuals()
             self.visualize()
 
-            self.val_loss_names = ['IoU_background',	'IoU_1', 'IoU_2', 'IoU_3', 'IoU_4', 'IoU_5', 'IoU_mean', 'style_correct_num', 'gp_distance', 'mean_body_distance', 'gp_distance_median', 'mean_body_distance_median']
+            self.val_loss_names = ['IoU_background',	'IoU_1', 'IoU_2']
             # evaluation metric (IoU)
             #self.IoU = networks.TestIoULoss(n_classes=self.opt.output_nc)
             #self.loss_IoU = self.IoU(self.fake_B, torch.argmax(self.real_B, 1, keepdim=False).long())
@@ -271,158 +265,20 @@ class ourmodel(BaseModel):
             
             Pred = torch.argmax(self.fake_B, 1, keepdim=False).detach().cpu().numpy()
             GT = torch.argmax(self.real_B, 1, keepdim=False).cpu().numpy()
-            Prob = torch.softmax(self.fake_B, dim=1)
-
-            grasping_points_dist, mean_body_dist = self.eval_gp(Prob, GT)
-            if not mean_body_dist == "None":
-                if not (grasping_points_dist == "None"):
-                    self.loss_gp_distance += grasping_points_dist
-                    self.loss_mean_body_distance += mean_body_dist
-
-                    self.loss_gp_distance_median = grasping_points_dist
-                    self.loss_mean_body_distance_median = mean_body_dist
-                if (grasping_points_dist == "None"):
-                    self.loss_gp_distance_median = 9999
-                    self.loss_mean_body_distance_median = mean_body_dist
             
-            if (mean_body_dist == 'None'):
-                self.loss_mean_body_distance_median = 10086
-                if (grasping_points_dist == "None"):
-                    self.loss_gp_distance_median = 10086
-                if not (grasping_points_dist == "None"):
-                    self.loss_gp_distance_median = 9999
+
+            
+            
                     
             
-            class_IoU, class_weight = GetIOU(Pred,GT, NumClasses=6, ClassNames=["background", "1", "2", "3", "4", "5"], DisplyResults=False)
+            class_IoU, class_weight = GetIOU(Pred,GT, NumClasses=3, ClassNames=["background", "1", "2"], DisplyResults=False)
 
             self.loss_IoU_background += class_IoU[0]
             self.loss_IoU_1 += class_IoU[1]
             self.loss_IoU_2 += class_IoU[2]
-            self.loss_IoU_3 += class_IoU[3]
-            self.loss_IoU_4 += class_IoU[4]
-            self.loss_IoU_5 += class_IoU[5]
-            self.loss_IoU_mean += np.mean(class_IoU)
-            self.loss_style_correct_num = self.style_correct_num
+            
 
-    def eval_gp(self, prob, gt):
-        # evaluate the distance between predicted and GT grasping points
-        
-        # np.save('/content/prob',prob)
-        # np.save('/content/gt', gt)
-        
-        # prob = np.load("./prob.npy")
-        # gt = np.load("./gt.npy")
-
-        cloth_map = np.array([[0,0,0],[200,0,0],[0,0,200],[0,200,0],[255,192,203],[255,255,0]])
-        gt = gt[0]
-        gt_visual = cloth_map[gt]
-        
-
-        index = np.where(gt==5)
-        GT_points = []
-        for i in range(0, len(index[0])):
-            GT_points.append([index[0][i], index[1][i]])
-        # print("gt value:", GT_points)
-
-        Body_mean_point = []
-        Other_labels = torch.argmax(self.fake_B, 1, keepdim=False).detach().cpu().numpy()
-        Other_labels = Other_labels[0]
-        index = np.where(Other_labels==1)
-        row = 0
-        col = 0
-        for i in range(0, len(index[0])):
-            row += index[0][i]
-            col += index[1][i]
-        if not len(index[0]) == 0:
-            Body_mean_point.append(math.floor(row/len(index[0])))
-            Body_mean_point.append(math.floor(col/len(index[0])))
-        else:
-            Body_mean_point.append(0)
-            Body_mean_point.append(0)
-
-
-
-        grasping_point_gt = np.zeros_like(gt)
-        grasping_point_gt[np.where(gt == 5)] = 1
-
-        # print("grasping point value:", grasping_point_gt[ index[0][0], index[1][0] ])
-
-
-        grasp_map = np.array([[0,0,0],[255,255,0]])
-        grasping_point_gt_visual = grasp_map[grasping_point_gt]
-
-        ### Prediction
-        pred = torch.argmax(torch.tensor(prob), dim=1, keepdim=False)
-        pred_np = pred.numpy()
-        pred_np = pred_np[0]
-
-        pred_visual = cloth_map[pred_np]
-
-
-        ###
-        grasping_point_pred = np.zeros_like(gt)
-        grasping_point_pred[np.where(pred_np == 5)] = 1
-
-        grasp_map = np.array([[0,0,0],[255,255,0]])
-        grasping_point_pred_visaul = grasp_map[grasping_point_pred]
-
-
-        # find grasping points max prob index
-        gp_prob = prob[0,5]
-        gp_prob = gp_prob * grasping_point_pred
-        i,j = np.unravel_index(gp_prob.argmax(), gp_prob.shape)
-
-        Pred_point = [i,j]
-        
-        # plt.scatter(x=[j], y=[i], c='r', s=4)
-        graping_point_gt_and_pred_map = grasping_point_gt
-        graping_point_gt_and_pred_map[i,j] = 2
-        graping_point_gt_and_pred_map[Body_mean_point[0],Body_mean_point[1]] = 3
-
-        grasp_map = np.array([[0,0,0],[255,255,0],[255,0,0],[0,255,0]])
-        self.graping_point_gt_and_pred_visual = grasp_map[graping_point_gt_and_pred_map]
-
-
-
-
-        dist = []
-        for point in GT_points:
-            a = self.pixel_distance(Pred_point, point)
-            dist.append(a)
-
-        body_dist = []
-
-        for point in GT_points:
-          a = self.pixel_distance(Body_mean_point, point)
-          body_dist.append(a)
-
-        # if len(body_dist)==0:
-        #     return "None", "None"
-        # if len(dist)!=0 and len(body_dist)!=0:
-        #     print("min distance: {}, mean dist: {}".format( min(dist), min(body_dist)  ) )
-        #     return min(dist), min(body_dist)
-        # if len(dist)==0 and len(body_dist)!=0:
-        #     print("min distance: {}, mean dist: {}".format( 9999, min(body_dist)  ) )
-        #     return "None", min(body_dist)
-
-        if len(body_dist) == 0:
-            body_return = 'None'
-        if len(dist) == 0:
-            gp_return = 'None'
-        if not len(body_dist) == 0:
-            body_return = min(body_dist)
-        if not len(dist) == 0:
-            if Pred_point == [0,0]:
-                gp_return = 'None'
-            if not Pred_point == [0,0]:
-                gp_return = min(dist)
-        print("min distance: {}, mean dist: {}".format( gp_return, body_return  ) )
-        return gp_return, body_return
-        
-
-    def pixel_distance(self, pointA, pointB):
-        distance = math.sqrt( (pointA[0]-pointB[0])**2 + (pointA[1]-pointB[1])**2 )
-        return distance
+    
 
 
         

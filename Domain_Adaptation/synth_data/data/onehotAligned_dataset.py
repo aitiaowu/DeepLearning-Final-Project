@@ -42,12 +42,11 @@ class onehotAlignedDataset(BaseDataset):
         """
         # read a image given a random integer index
         AB_path = self.AB_paths[index]
-        # depth_style = int(AB_path[-5]) # depth style: real=1, synthetic=0
-        # AB = cv2.imread(AB_path, cv2.IMREAD_UNCHANGED)
         AB = np.load(AB_path)
+        height = AB.shape[0] # 512
         # split AB image into A and B
-        A = np.float32(AB[:, :512])
-        B = np.float32(AB[:, 512:])
+        A = np.float32(AB[:, :height])
+        B = np.float32(AB[:, height:])
 
         # A = np.float32(AB)
         # B = np.float32(AB)
@@ -82,7 +81,7 @@ class onehotAlignedDataset(BaseDataset):
 
 
         # import numpy as np
-        label_num = 6   # change the label num
+        label_num = 3   # change the label num
         h = self.opt.crop_size   # change the label height
         w = self.opt.crop_size   # change the label width
         target_onehot = torch.zeros((label_num, h, w))

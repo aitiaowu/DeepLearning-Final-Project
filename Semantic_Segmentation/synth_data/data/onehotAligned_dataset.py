@@ -83,7 +83,7 @@ class onehotAlignedDataset(BaseDataset):
 
 
         # import numpy as np
-        label_num = 6   # change the label num
+        label_num = 3   # change the label num
         h = self.opt.crop_size   # change the label height
         w = self.opt.crop_size   # change the label width
         target_onehot = torch.zeros((label_num, h, w))

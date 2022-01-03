@@ -66,13 +66,8 @@ class ourmodel(BaseModel):
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
         
         # if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
-        self.netD1 = networks.define_D(128, opt.ndf, opt.netD,
-                                      32*60*60, opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netD2 = networks.define_D(256, opt.ndf, opt.netD,
-                                      32*28*28, opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netD3 = networks.define_D(256, opt.ndf, opt.netD,
-                                      32*12*12, opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netD4 = networks.define_D(256, opt.ndf, opt.netD,
+        
+        self.netD1 = networks.define_D(256, opt.ndf, opt.netD,
                                       32*4*4, opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
 
         if self.isTrain:
@@ -81,8 +76,7 @@ class ourmodel(BaseModel):
             self.criterionEntropy = torch.nn.CrossEntropyLoss()
             self.criterionL1 = torch.nn.L1Loss()
 
-            # self.IoU_weights = Variable(torch.tensor([1, 10, 1000])).to(self.device)
-            self.IoU_weights = Variable(torch.tensor([0.1, 0.1, 1, 0.1, 5, 1])).to(self.device)
+            self.IoU_weights = Variable(torch.tensor([0.01, 0.1, 0.05])).to(self.device)
             self.criterionIoU = networks.mIoULoss(weight=self.IoU_weights, n_classes=opt.output_nc)
 
             self.criterionDice = networks.diceLoss()
@@ -90,10 +84,7 @@ class ourmodel(BaseModel):
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             optim_params = [
               {'params': self.netG.parameters(), 'lr': opt.lr},
-              {'params': self.netD1.parameters(), 'lr': opt.lr},
-              {'params': self.netD2.parameters(), 'lr': opt.lr},
-              {'params': self.netD3.parameters(), 'lr': opt.lr},
-              {'params': self.netD4.parameters(), 'lr': opt.lr},
+              {'params': self.netD1.parameters(), 'lr': opt.lr}
               ]
             self.optimizer_G = torch.optim.Adam(optim_params, lr=opt.lr, betas=(opt.beta1, 0.999))
             # self.optimizer_G = torch.optim.SGD(optim_params, lr=opt.lr, momentum=0.9, weight_decay=5e-4)
@@ -119,7 +110,7 @@ class ourmodel(BaseModel):
 
         # data to train domain classifier
         self.target_real_A = target_input['A' if AtoB else 'B'].to(self.device)
-        _ = target_input['B' if AtoB else 'A'].to(self.device)
+        self.target_real_B = target_input['B' if AtoB else 'A'].to(self.device)
         self.target_image_paths = target_input['A_paths' if AtoB else 'B_paths']
         self.gt_depth_style = torch.ones(self.real_A.shape[0], device=self.device).long()
 
@@ -152,11 +143,7 @@ class ourmodel(BaseModel):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         _, self.features = self.netG(self.input_x)  # G(A)
         self.fake_B, self.source_features = self.netG(self.real_A)
-
-
-        #self.fake_B = torch.softmax(self.fake_B, dim=1)
-    
-
+        
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
@@ -171,35 +158,21 @@ class ourmodel(BaseModel):
 
         
 
-    def backward_G(self, i):
+    def backward_G(self):
         """Calculate GAN and L_CE loss for the generator"""
         # First, G(A) should fake the discriminator
 
-        pred_depth_style1 = self.netD1(self.features[0])
+        pred_depth_style1 = self.netD1(self.features)
         self.loss_G_GAN1 = self.criterionEntropy(pred_depth_style1, self.discriminator_y) 
         
-        pred_depth_style2 = self.netD2(self.features[1])
-        self.loss_G_GAN2 = self.criterionEntropy(pred_depth_style2, self.discriminator_y) 
         
-        pred_depth_style3 = self.netD3(self.features[2])
-        self.loss_G_GAN3 = self.criterionEntropy(pred_depth_style3, self.discriminator_y) 
-        
-        pred_depth_style4 = self.netD4(self.features[3])
-        self.loss_G_GAN4 = self.criterionEntropy(pred_depth_style4, self.discriminator_y)
         
 
         self.loss_G_Entropy = self.criterionIoU(self.fake_B, self.real_B) * self.opt.lambda_entropy #segmentation
         
-        # if i%4 == 1:
-        #     self.loss_G_GAN = (self.loss_G_GAN1 * 1 + self.loss_G_GAN2 * 0 + self.loss_G_GAN3 * 0 + self.loss_G_GAN4 * 0) * self.opt.lambda_DA
-        # if i%4 == 2:
-        #     self.loss_G_GAN = (self.loss_G_GAN1 * 0 + self.loss_G_GAN2 * 1 + self.loss_G_GAN3 * 0 + self.loss_G_GAN4 * 0) * self.opt.lambda_DA
-        # if i%4 == 3:
-        #     self.loss_G_GAN = (self.loss_G_GAN1 * 0 + self.loss_G_GAN2 * 0 + self.loss_G_GAN3 * 1 + self.loss_G_GAN4 * 0) * self.opt.lambda_DA
-        # if i%4 == 0:
-        #     self.loss_G_GAN = (self.loss_G_GAN1 * 0 + self.loss_G_GAN2 * 0 + self.loss_G_GAN3 * 0 + self.loss_G_GAN4 * 1) * self.opt.lambda_DA
+        
 
-        self.loss_G_GAN = (self.loss_G_GAN1 * 0.6 + self.loss_G_GAN2 * 0 + self.loss_G_GAN3 * 0.4 + self.loss_G_GAN4 * 0) * self.opt.lambda_DA
+        self.loss_G_GAN = self.loss_G_GAN1 * self.opt.lambda_DA
         # self.loss_G_GAN = (self.loss_G_GAN1 * 0.4 + self.loss_G_GAN2 * 0.1 + self.loss_G_GAN3 * 0.4 + self.loss_G_GAN4 * 0.1) * self.opt.lambda_DA
 
 
@@ -208,26 +181,24 @@ class ourmodel(BaseModel):
 
         self.loss_G.backward()
 
-    def optimize_parameters(self, i):
+    def optimize_parameters(self):
         self.forward_G()                   # compute fake images: G(A)
 
         self.optimizer_G.zero_grad()        # set G's gradients to zero
-        self.backward_G(i)                   # calculate graidents for G
+        self.backward_G()                   # calculate graidents for G
         self.optimizer_G.step()             # udpate G's weights
         self.visualize()
 
     def visualize(self):
         # background: 0
-        # cuffs: 1
-        # right cuff: 2
-        # body: 3
+        # edge: 1
+        # body: 2
 
         # labels = ['background',	'left cuff',	'right cuff',	'body']
         # cloth_map = np.array([[0,0,0],[0,200,0],[0,0,200],[200,0,0]])
 
-        labels = ['background',	'body', 'top edge', 'middle edge', 'bottom edge', 'grasping point']
-        cloth_map = np.array([[0,0,0],[0,200,0],[200,0,0],[0,0,200],[255,192,203],[255,255,0]])
-
+        labels = ['background',	'body', 'edge']
+        cloth_map = np.array([[0,0,0],[0,0,200],[0,200,0]])
         self.fake_B_lable = torch.argmax(self.fake_B, dim=1)
 
         #self.fake_B_visual = [cloth_map[p] for p in self.fake_B_lable.cpu()]
@@ -309,16 +280,11 @@ class ourmodel(BaseModel):
         self.loss_IoU_background = 0
         self.loss_IoU_1 = 0
         self.loss_IoU_2 = 0
-        self.loss_IoU_3 = 0
-        self.loss_IoU_4 = 0
-        self.loss_IoU_5 = 0
-        self.loss_IoU_mean = 0
+        
 
         val_num = 0
         depth_style_correct_num1 = 0
-        depth_style_correct_num2 = 0
-        depth_style_correct_num3 = 0
-        depth_style_correct_num4 = 0
+        self.loss_IoU_mean = 0
         
         with torch.no_grad():
             for i, data in enumerate(val_dataset):
@@ -330,35 +296,14 @@ class ourmodel(BaseModel):
                 if name == 'real':
                     self.gt_depth_style = torch.ones(self.real_A.shape[0], device=self.device).long()
                 
-                pred_depth_style1 = self.netD1(self.source_features[0])
+                pred_depth_style1 = self.netD1(self.source_features)
 
                 pred_depth_style1 = torch.argmax(pred_depth_style1, 1, keepdim=False).detach().cpu().numpy()
                 gt_depth_style = self.gt_depth_style.cpu().numpy()
                 if pred_depth_style1 == gt_depth_style:
                   depth_style_correct_num1 += 1
-
-                pred_depth_style2 = self.netD2(self.source_features[1])
-
-                pred_depth_style2 = torch.argmax(pred_depth_style2, 1, keepdim=False).detach().cpu().numpy()
-                # gt_depth_style = self.gt_depth_style.cpu().numpy()
-                if pred_depth_style2 == gt_depth_style:
-                  depth_style_correct_num2 += 1
-
-                pred_depth_style3 = self.netD3(self.source_features[2])
-
-                pred_depth_style3 = torch.argmax(pred_depth_style3, 1, keepdim=False).detach().cpu().numpy()
-                # gt_depth_style = self.gt_depth_style.cpu().numpy()
-                if pred_depth_style3 == gt_depth_style:
-                  depth_style_correct_num3 += 1
-
-                
-                pred_depth_style4 = self.netD4(self.source_features[3])
-
-                pred_depth_style4 = torch.argmax(pred_depth_style4, 1, keepdim=False).detach().cpu().numpy()
-                # gt_depth_style = self.gt_depth_style.cpu().numpy()
-                if pred_depth_style4 == gt_depth_style:
-                  depth_style_correct_num4 += 1
                 val_num += 1
+               
                 
 
                 # fake_AB = self.real_A * self.fake_B
@@ -373,13 +318,11 @@ class ourmodel(BaseModel):
 
                 Pred = torch.argmax(self.fake_B, 1, keepdim=False).detach().cpu().numpy()
                 GT = torch.argmax(self.real_B, 1, keepdim=False).cpu().numpy()
-                class_IoU, class_weight = GetIOU(Pred, GT, NumClasses=6, ClassNames=["background", "1", "2", "3", "4", "5"], DisplyResults=False)
+                class_IoU, class_weight = GetIOU(Pred, GT, NumClasses=3, ClassNames=["background", "1", "2"], DisplyResults=False)
                 self.loss_IoU_background += class_IoU[0]
                 self.loss_IoU_1 += class_IoU[1]
                 self.loss_IoU_2 += class_IoU[2]
-                self.loss_IoU_3 += class_IoU[3]
-                self.loss_IoU_4 += class_IoU[4]
-                self.loss_IoU_5 += class_IoU[5]
+
                 self.loss_IoU_mean += np.mean(class_IoU)
 
             # losses = self.get_current_losses()
@@ -391,17 +334,14 @@ class ourmodel(BaseModel):
             # log_name = os.path.join(self.opt.checkpoints_dir, self.opt.name, 'loss_log.txt')
             # with open(log_name, "a") as log_file:
             #     log_file.write('%s\n' % message)  # save the message
-
+                
             style_acc1 = depth_style_correct_num1/val_num
-            style_acc2 = depth_style_correct_num2/val_num
-            style_acc3 = depth_style_correct_num3/val_num
-            style_acc4 = depth_style_correct_num4/val_num
-            print("{} depth style accuracy: {}".format(name, style_acc4))
+           
+            print("{} depth style accuracy: {}".format(name, style_acc1))
             log_name = os.path.join(self.opt.checkpoints_dir, self.opt.name, 'val_log_{}.txt'.format(name))
             with open(log_name, "a") as log_file:
-                log_file.write('background: {}, body: {}, top edge: {}, middle edge: {}, bottom edge: {}, graping point {}, mean: {}, style_acc1: {}, acc2: {}, acc3: {}, acc4: {}\n'.format(self.loss_IoU_background/val_dataset_size,
-                self.loss_IoU_1/val_dataset_size, self.loss_IoU_2/val_dataset_size, self.loss_IoU_3/val_dataset_size, self.loss_IoU_4/val_dataset_size, 
-                self.loss_IoU_5/val_dataset_size, self.loss_IoU_mean/val_dataset_size, style_acc1, style_acc2, style_acc3, style_acc4))
+                log_file.write('background: {}, body: {}, edge: {}， style_acc: {}\n'.format(self.loss_IoU_background/val_dataset_size,
+                self.loss_IoU_2/val_dataset_size, self.loss_IoU_1/val_dataset_size, style_acc1))
     def get_val_losses(self):
         """Return traning losses / errors. train.py will print out these errors on console, and save them to a file"""
 

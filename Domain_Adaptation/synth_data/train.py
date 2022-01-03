@@ -83,11 +83,8 @@ if __name__ == '__main__':
             total_iters += opt.batch_size
             epoch_iter += opt.batch_size
 
-            # model_front2back.set_input(data)
-            # data["A_back"] = model_front2back.forward()
-
             model.set_input_train(data, target_data)         # unpack data from dataset and apply preprocessing
-            model.optimize_parameters(i)   # calculate loss functions, get gradients, update network weights
+            model.optimize_parameters()   # calculate loss functions, get gradients, update network weights
 
             if total_iters % opt.display_freq == 0:   # display images on visdom and save images to a HTML file
                 save_result = total_iters % opt.update_html_freq == 0
@@ -115,8 +112,8 @@ if __name__ == '__main__':
         print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
 
         # Validation losses
-        # model.eval()
-        # model.validate(val_dataset1, 'synthetic')
-        # model.validate(val_dataset2, 'real')
-        # model.train_state()
+        model.eval()
+        model.validate(val_dataset1, 'synthetic')
+        model.validate(val_dataset2, 'real')
+        model.train_state()
         

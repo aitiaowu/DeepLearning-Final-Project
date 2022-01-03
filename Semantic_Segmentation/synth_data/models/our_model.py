@@ -72,9 +72,8 @@ class ourmodel(BaseModel):
             self.criterionEntropy = torch.nn.CrossEntropyLoss()
             self.criterionL1 = torch.nn.L1Loss()
 
-            self.IoU_weights = Variable(torch.tensor([0.01, 0.01, 0.1, 0.1, 0.1, 1])).to(self.device)
+            self.IoU_weights = Variable(torch.tensor([0.01, 0.1, 0.1])).to(self.device)
 
-            # self.IoU_weights = Variable(torch.tensor([0.005, 0.005, 0.1, 0.05, 0.05, 1])).to(self.device)
             self.criterionIoU = networks.mIoULoss(weight=self.IoU_weights, n_classes=opt.output_nc)
 
             self.criterionDice = networks.diceLoss()
@@ -82,7 +81,6 @@ class ourmodel(BaseModel):
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             optim_params = [
               {'params': self.netG.parameters(), 'lr': opt.lr},
-              #{'params': self.netD.parameters(), 'lr': opt.lr}
               ]
             self.optimizer_G = torch.optim.Adam(optim_params, lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -198,15 +196,11 @@ class ourmodel(BaseModel):
 
     def visualize(self):
         # background: 0
-        # cuffs: 1
-        # right cuff: 2
-        # body: 3
+        # body: 2
+        # edge: 1
 
-        # labels = ['background',	'left cuff',	'right cuff',	'body']
-        # cloth_map = np.array([[0,0,0],[0,200,0],[0,0,200],[200,0,0]])
-
-        labels = ['background',	'body', 'top edge', 'middle edge', 'bottom edge', 'grasping point']
-        cloth_map = np.array([[0,0,0],[0,200,0],[200,0,0],[0,0,200],[255,192,203],[255,255,0]])
+        labels = ['background',	'body', 'edge']
+        cloth_map = np.array([[0,0,0],[0,0,200],[0,200,0]])
 
 
         self.fake_B_lable = torch.argmax(self.fake_B, dim=1)
@@ -289,10 +283,8 @@ class ourmodel(BaseModel):
         self.loss_IoU_background = 0
         self.loss_IoU_1 = 0
         self.loss_IoU_2 = 0
-        self.loss_IoU_3 = 0
-        self.loss_IoU_4 = 0
-        self.loss_IoU_5 = 0
         self.loss_IoU_mean = 0
+        
 
         val_num = 0
         depth_style_correct_num = 0
@@ -323,13 +315,11 @@ class ourmodel(BaseModel):
                 self.fake_B = torch.softmax(self.fake_B, dim=1)
                 Pred = torch.argmax(self.fake_B, 1, keepdim=False).detach().cpu().numpy()
                 GT = torch.argmax(self.real_B, 1, keepdim=False).cpu().numpy()
-                class_IoU, class_weight = GetIOU(Pred, GT, NumClasses=6, ClassNames=["background", "1", "2", "3", "4", "5"], DisplyResults=False)
+                class_IoU, class_weight = GetIOU(Pred, GT, NumClasses=3, ClassNames=["background", "1", "2"], DisplyResults=False)
                 self.loss_IoU_background += class_IoU[0]
                 self.loss_IoU_1 += class_IoU[1]
                 self.loss_IoU_2 += class_IoU[2]
-                self.loss_IoU_3 += class_IoU[3]
-                self.loss_IoU_4 += class_IoU[4]
-                self.loss_IoU_5 += class_IoU[5]
+                
                 self.loss_IoU_mean += np.mean(class_IoU)
 
             # losses = self.get_current_losses()
@@ -346,9 +336,8 @@ class ourmodel(BaseModel):
             print("depth style accuracy: ", style_acc)
             log_name = os.path.join(self.opt.checkpoints_dir, self.opt.name, 'val_log.txt')
             with open(log_name, "a") as log_file:
-                log_file.write('background: {}, body: {}, top edge: {}, middle edge: {}, bottom edge: {}, grasping point: {} mean: {}, style_acc: {}\n'.format(self.loss_IoU_background/val_dataset_size,
-                self.loss_IoU_1/val_dataset_size, self.loss_IoU_2/val_dataset_size, self.loss_IoU_3/val_dataset_size, self.loss_IoU_4/val_dataset_size, 
-                self.loss_IoU_5/val_dataset_size, self.loss_IoU_mean/val_dataset_size, style_acc))  # save the message
+                log_file.write('background: {}, body: {}, edge: {}, style_acc: {}\n'.format(self.loss_IoU_background/val_dataset_size,
+                self.loss_IoU_2/val_dataset_size, self.loss_IoU_1/val_dataset_size, style_acc))  # save the message
 
     def get_val_losses(self):
         """Return traning losses / errors. train.py will print out these errors on console, and save them to a file"""

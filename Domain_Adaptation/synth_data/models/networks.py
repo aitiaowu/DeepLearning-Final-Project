@@ -965,7 +965,6 @@ class EncoderDecoderGenerator(nn.Module):
 
         bottleneck = self.downsample(input)
         output = self.upsample(bottleneck)
-
         return output, bottleneck           
 
 
@@ -1105,7 +1104,7 @@ class LeNet(nn.Module):
     def forward(self, x):
 
         #x = [batch size, 256, 8, 8]
-        x = self.net(x) 
+        x = self.net(x)
         x = x.view(x.shape[0], -1)
         x = self.pred(x)
         
