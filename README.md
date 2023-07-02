@@ -1,6 +1,7 @@
 # DeepLearning-Final-Project
 
-
+## Demo
+Click to see [demo](https://github.com/aitiaowu/DeepLearning-Final-Project/blob/main/test_Demo.ipynb) using provided [model](https://github.com/aitiaowu/DeepLearning-Final-Project/tree/main/ckpt).
 ## Preamble
 This codebase was developed and tested with Python 3.6, Pytorch 1.4.0, CUDA 11.2. The framework is based on [pytorch-CycleGAN-and-pix2pix
 ](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix).
@@ -31,5 +32,4 @@ You should be able to test the model by running the following command.
 
 Note: You can also see the whole Training/Testing process [here](https://github.com/aitiaowu/DeepLearning-Final-Project/blob/main/02456_Final_Project.ipynb).
 
-## Demo
-Click to see [demo](https://github.com/aitiaowu/DeepLearning-Final-Project/blob/main/test_Demo.ipynb) using provided [model](https://github.com/aitiaowu/DeepLearning-Final-Project/tree/main/ckpt).
+
